@@ -9,25 +9,27 @@ class Settings(BaseSettings):
     bookstack_token_secret: str = ""
     bookstack_page_size: int = 500  # max items per API call
 
-    # Qdrant (shared with hybrid-rag-backend)
+    # Qdrant
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
     qdrant_collection: str = "tech_manuals"
 
-    # Embeddings
-    # ⚠️ MUST match the model used in hybrid-rag-backend for retrieval to work.
-    # Default produces 768-dim vectors, same as nomic-embed-text.
+    # Embeddings (Vectores de 768 dimensiones)
     embedding_model: str = "paraphrase-multilingual-mpnet-base-v2"
     embedding_batch_size: int = 32
-    embedding_device: str = "cpu"  # "cuda" if GPU available
+    embedding_device: str = "cuda"
 
     # Chunking
     chunk_size_tokens: int = 500
     chunk_overlap_tokens: int = 100
     tiktoken_encoding: str = "cl100k_base"
 
-    # State tracking (SQLite)
-    tracker_db_path: str = "ingestion_state.db"
+    # Postgres
+    postgres_host: str = "localhost"
+    postgres_port: int = 5432
+    postgres_db: str = "rag_ingestion"
+    postgres_user: str = "rag"
+    postgres_password: str = "rag"
 
     # Logging
     log_level: str = "INFO"

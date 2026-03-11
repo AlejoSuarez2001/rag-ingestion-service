@@ -1,6 +1,5 @@
 import hashlib
 import logging
-import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -112,7 +111,6 @@ class QdrantStore:
     @staticmethod
     def _chunk_to_payload(chunk: Chunk) -> dict:
         return {
-            # DER fields
             "chunk_id": chunk.chunk_id,
             "position": chunk.position,
             "page_id": chunk.page_id,
@@ -121,12 +119,11 @@ class QdrantStore:
             "chapter": chunk.chapter,
             "page": chunk.page,
             "content": chunk.content,
-            "url": chunk.url,
+            "source": chunk.source,
             "tokens": chunk.tokens,
             "version": chunk.version,
-            # Compatibility aliases for hybrid-rag-backend
-            "text": chunk.content,      # used by retrieval_service keyword search
-            "source": chunk.url,        # used by retrieval_service for source attribution
+            # Alias usado por retrieval_service para búsqueda keyword
+            "text": chunk.content,
         }
 
     @staticmethod
@@ -140,12 +137,15 @@ class QdrantStore:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Postgres page tracker
+# ──────────────────────────────────────────────────────────────────────────────
+
+
 class PageTracker:
     """
-    Lightweight SQLite tracker that records which pages have been ingested
+    Postgres-backed tracker that records which pages have been ingested
     and their content hash, enabling incremental re-ingestion.
-
-    This is the foundation for the future scheduled change-detection job.
     """
 
     _CREATE_TABLE = """
@@ -159,22 +159,35 @@ class PageTracker:
         )
     """
 
-    def __init__(self, db_path: str = "ingestion_state.db") -> None:
-        self._db_path = db_path
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute(self._CREATE_TABLE)
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        dbname: str,
+        user: str,
+        password: str,
+    ) -> None:
+        import psycopg2
+        import psycopg2.extras
+
+        self._conn = psycopg2.connect(
+            host=host, port=port, dbname=dbname, user=user, password=password
+        )
+        self._conn.autocommit = False
+        self._cursor_factory = psycopg2.extras.RealDictCursor
+        with self._conn.cursor() as cur:
+            cur.execute(self._CREATE_TABLE)
         self._conn.commit()
-        logger.info("PageTracker connected to %s", db_path)
+        logger.info("PageTracker conectado a Postgres %s:%s/%s", host, port, dbname)
 
     def get(self, page_id: int) -> dict | None:
-        row = self._conn.execute(
-            "SELECT * FROM pages WHERE page_id = ?", (page_id,)
-        ).fetchone()
+        with self._conn.cursor(cursor_factory=self._cursor_factory) as cur:
+            cur.execute("SELECT * FROM pages WHERE page_id = %s", (page_id,))
+            row = cur.fetchone()
         return dict(row) if row else None
 
     def needs_reingestion(self, page_id: int, updated_at: str, content_hash: str) -> bool:
-        """Return True if the page is new or its content has changed."""
+        """Devuelve True si la página es nueva o su contenido cambió."""
         record = self.get(page_id)
         if record is None:
             return True
@@ -185,19 +198,20 @@ class PageTracker:
         version = (existing["version"] + 1) if existing else 1
         now = datetime.now(timezone.utc).isoformat()
 
-        self._conn.execute(
-            """
-            INSERT INTO pages (page_id, updated_at, content_hash, version, chunk_count, ingested_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(page_id) DO UPDATE SET
-                updated_at   = excluded.updated_at,
-                content_hash = excluded.content_hash,
-                version      = excluded.version,
-                chunk_count  = excluded.chunk_count,
-                ingested_at  = excluded.ingested_at
-            """,
-            (page_id, updated_at, content_hash, version, chunk_count, now),
-        )
+        with self._conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO pages (page_id, updated_at, content_hash, version, chunk_count, ingested_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (page_id) DO UPDATE SET
+                    updated_at   = EXCLUDED.updated_at,
+                    content_hash = EXCLUDED.content_hash,
+                    version      = EXCLUDED.version,
+                    chunk_count  = EXCLUDED.chunk_count,
+                    ingested_at  = EXCLUDED.ingested_at
+                """,
+                (page_id, updated_at, content_hash, version, chunk_count, now),
+            )
         self._conn.commit()
 
     def get_version(self, page_id: int) -> int:
@@ -205,7 +219,9 @@ class PageTracker:
         return (record["version"] + 1) if record else 1
 
     def all_tracked_pages(self) -> list[dict]:
-        rows = self._conn.execute("SELECT * FROM pages ORDER BY ingested_at DESC").fetchall()
+        with self._conn.cursor(cursor_factory=self._cursor_factory) as cur:
+            cur.execute("SELECT * FROM pages ORDER BY ingested_at DESC")
+            rows = cur.fetchall()
         return [dict(r) for r in rows]
 
     def close(self) -> None:

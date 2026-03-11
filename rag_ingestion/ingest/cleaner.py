@@ -24,6 +24,8 @@ class DoclingCleaner:
                 return self._docling_clean(markdown_text)
             except Exception:
                 logger.warning("Docling cleaning failed, using fallback cleaner", exc_info=True)
+        else:
+            logger.debug("Docling no disponible, usando limpieza por regex como fallback")
         return self._regex_clean(markdown_text)
 
     # ------------------------------------------------------------------

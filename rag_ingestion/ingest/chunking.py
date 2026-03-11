@@ -20,7 +20,7 @@ class Chunk:
     chapter: str        # empty string if page is directly under book
     page: str           # BookStack page title
     content: str
-    url: str
+    source: str         # URL de la página en BookStack
     tokens: int
     version: int = 1
 
@@ -136,7 +136,7 @@ class ChunkingService:
             chapter=page.chapter_name or "",
             page=page.title,
             content=content,
-            url=page.url,
+            source=page.url,
             tokens=self._count_tokens(content),
             version=version,
         )

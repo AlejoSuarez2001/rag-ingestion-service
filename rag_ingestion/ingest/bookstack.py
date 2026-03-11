@@ -1,9 +1,13 @@
 import logging
+import time
 import httpx
 from typing import Iterator
 from rag_ingestion.ingest.models import BookStackPage
 
 logger = logging.getLogger(__name__)
+
+_RETRY_ATTEMPTS = 3
+_RETRY_BASE_DELAY = 1.0  # segundos; se duplica en cada intento
 
 
 class BookStackClient:
@@ -45,14 +49,49 @@ class BookStackClient:
 
     def get_page_markdown(self, page_id: int) -> str:
         """Return the markdown content of a single page."""
-        resp = self._client.get(f"{self._base}/api/pages/{page_id}")
-        resp.raise_for_status()
+        resp = self._get_with_retry(f"{self._base}/api/pages/{page_id}")
         data = resp.json()
         return data.get("markdown") or self._html_to_md_fallback(data.get("html", ""))
 
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    def _get_with_retry(self, url: str, **kwargs) -> httpx.Response:
+        """
+        Execute a GET request with exponential backoff retry on transient errors.
+        Retries on connection errors and HTTP 5xx/429 responses.
+        """
+        delay = _RETRY_BASE_DELAY
+        last_exc: Exception | None = None
+
+        for attempt in range(1, _RETRY_ATTEMPTS + 1):
+            try:
+                resp = self._client.get(url, **kwargs)
+                if resp.status_code in (429, 500, 502, 503, 504):
+                    logger.warning(
+                        "BookStack devolvió HTTP %d (intento %d/%d), reintentando en %.1fs…",
+                        resp.status_code, attempt, _RETRY_ATTEMPTS, delay,
+                    )
+                    if attempt < _RETRY_ATTEMPTS:
+                        time.sleep(delay)
+                        delay *= 2
+                        continue
+                resp.raise_for_status()
+                return resp
+            except (httpx.ConnectError, httpx.TimeoutException) as exc:
+                last_exc = exc
+                logger.warning(
+                    "Error de red al llamar a BookStack (intento %d/%d): %s. Reintentando en %.1fs…",
+                    attempt, _RETRY_ATTEMPTS, exc, delay,
+                )
+                if attempt < _RETRY_ATTEMPTS:
+                    time.sleep(delay)
+                    delay *= 2
+
+        raise RuntimeError(
+            f"BookStack API no respondió tras {_RETRY_ATTEMPTS} intentos: {last_exc}"
+        )
 
     def _warm_caches(self) -> None:
         """Pre-load all books and chapters to avoid N+1 API calls."""
@@ -103,11 +142,10 @@ class BookStackClient:
         """Generic paginator for BookStack list endpoints."""
         offset = 0
         while True:
-            resp = self._client.get(
+            resp = self._get_with_retry(
                 f"{self._base}{endpoint}",
                 params={"count": self._page_size, "offset": offset},
             )
-            resp.raise_for_status()
             body = resp.json()
             items: list[dict] = body.get("data", [])
             if not items:
