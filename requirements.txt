@@ -20,7 +20,7 @@ tiktoken==0.7.0
 docling==2.4.0
 
 # Settings & validation
-pydantic-settings==2.2.1
+pydantic-settings==2.3.4
 
 # State tracking
 psycopg2-binary==2.9.9

@@ -5,11 +5,10 @@ from rag_ingestion.ingest.chunking import Chunk
 
 logger = logging.getLogger(__name__)
 
-
 class EmbeddingService:
     """Generates dense vector embeddings using Sentence Transformers."""
 
-    def __init__(self, model_name: str, batch_size: int = 32, device: str = "cpu") -> None:
+    def __init__(self, model_name: str, batch_size: int = 32, device: str = "cuda") -> None:
         logger.info("Loading embedding model: %s (device=%s)", model_name, device)
         self._model = SentenceTransformer(model_name, device=device)
         self._batch_size = batch_size
@@ -37,7 +36,7 @@ class EmbeddingService:
             texts,
             batch_size=self._batch_size,
             show_progress_bar=len(chunks) > 50,
-            normalize_embeddings=True,  # cosine similarity optimized
+            normalize_embeddings=True,
             convert_to_numpy=True,
         )
 

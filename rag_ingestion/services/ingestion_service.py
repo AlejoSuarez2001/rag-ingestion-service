@@ -47,7 +47,6 @@ class IngestionService:
         self._lock = threading.Lock()
         self.job = IngestionJob()
 
-        # Servicios reutilizables inicializados una vez
         self._embedder = EmbeddingService(
             model_name=settings.embedding_model,
             batch_size=settings.embedding_batch_size,
@@ -88,7 +87,6 @@ class IngestionService:
                 base_url=self._settings.bookstack_url,
                 token_id=self._settings.bookstack_token_id,
                 token_secret=self._settings.bookstack_token_secret,
-                page_size=self._settings.bookstack_page_size,
             ) as bookstack, PageTracker(
                 host=self._settings.postgres_host,
                 port=self._settings.postgres_port,

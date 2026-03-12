@@ -1,11 +1,24 @@
-version: "3.9"
-
 services:
   ingestion:
-    build: .
+    build:
+      context: .
+      args:
+        TORCH_VERSION: "2.3.1"
+        TORCH_INDEX_URL: "https://download.pytorch.org/whl/cu121"
     ports:
       - "8001:8001"
     env_file: .env
+    environment:
+      EMBEDDING_DEVICE: cuda
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     depends_on:
       postgres:
         condition: service_healthy

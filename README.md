@@ -57,7 +57,7 @@ Cada punto almacena el siguiente payload:
   "url": "https://docs.example.com/books/manual/page/usuarios-frba",
   "tokens": 320,
   "version": 1,
-  "text": "...",     // alias de content (compatibilidad hybrid-rag-backend)
+  "text": "...",     // texto etiquetado con Título/Página/Capítulo/Libro/Contenido para búsqueda keyword
   "source": "..."    // alias de url (compatibilidad hybrid-rag-backend)
 }
 ```
@@ -78,8 +78,8 @@ ingested_at TEXT
 ## Flujo de ingestión
 
 ```
-BookStack API
-     │ markdown
+BookStack Search API
+     │ listado completo de páginas + markdown export
      ▼
 DoclingCleaner         ← limpia HTML, callouts, normaliza formato
      │ cleaned_markdown
@@ -98,6 +98,8 @@ QdrantStore            ← delete_page_chunks() + upsert_chunks()
      ▼
 PageTracker (SQLite)   ← guarda hash + version + chunk_count
 ```
+
+La obtención de páginas usa una única llamada a `GET /api/search?query=*`, que ya devuelve el listado completo, y luego descarga el contenido desde `GET /api/pages/:id/export/markdown`.
 
 ---
 
@@ -154,6 +156,8 @@ docker run --env-file .env --network host rag-ingestion ingest
 # Re-ingestión forzada
 docker run --env-file .env --network host rag-ingestion ingest --force
 ```
+
+Para usar GPU NVIDIA con Docker Compose, el servicio `ingestion` está configurado con `gpus: all` y `EMBEDDING_DEVICE=cuda`. En el host necesitás drivers NVIDIA y `nvidia-container-toolkit` instalados para que el contenedor pueda acceder a la placa.
 
 ---
 

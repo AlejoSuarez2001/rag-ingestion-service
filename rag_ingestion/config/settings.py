@@ -4,13 +4,12 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # BookStack
-    bookstack_url: str = "https://docs.example.com"
+    bookstack_url: str = ""
     bookstack_token_id: str = ""
     bookstack_token_secret: str = ""
-    bookstack_page_size: int = 500  # max items per API call
 
     # Qdrant
-    qdrant_host: str = "localhost"
+    qdrant_host: str = "qdrant"
     qdrant_port: int = 6333
     qdrant_collection: str = "tech_manuals"
 
@@ -25,7 +24,7 @@ class Settings(BaseSettings):
     tiktoken_encoding: str = "cl100k_base"
 
     # Postgres
-    postgres_host: str = "localhost"
+    postgres_host: str = "postgres"
     postgres_port: int = 5432
     postgres_db: str = "rag_ingestion"
     postgres_user: str = "rag"

@@ -21,10 +21,7 @@ from rag_ingestion.ingest.chunking import Chunk
 
 logger = logging.getLogger(__name__)
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Qdrant vector store
-# ──────────────────────────────────────────────────────────────────────────────
-
 
 class QdrantStore:
     """Manages chunk upserts and deletions in Qdrant."""
@@ -32,6 +29,8 @@ class QdrantStore:
     def __init__(self, host: str, port: int, collection: str) -> None:
         self._client = QdrantClient(host=host, port=port)
         self._collection = collection
+
+    # Public functions
 
     def ensure_collection(self, vector_size: int) -> None:
         """Create the collection and payload indexes if they don't exist yet."""
@@ -82,9 +81,7 @@ class QdrantStore:
             "status": str(info.status),
         }
 
-    # ------------------------------------------------------------------
     # Private helpers
-    # ------------------------------------------------------------------
 
     def _create_indexes(self) -> None:
         """Create keyword (full-text) and payload field indexes."""
@@ -122,25 +119,26 @@ class QdrantStore:
             "source": chunk.source,
             "tokens": chunk.tokens,
             "version": chunk.version,
-            # Alias usado por retrieval_service para búsqueda keyword
-            "text": chunk.content,
+            "text": QdrantStore._chunk_search_text(chunk),
         }
+
+    @staticmethod
+    def _chunk_search_text(chunk: Chunk) -> str:
+        parts = [
+            ("Título", chunk.title),
+            ("Página", chunk.page),
+            ("Capítulo", chunk.chapter),
+            ("Libro", chunk.book),
+            ("Contenido", chunk.content),
+        ]
+        return "\n\n".join(f"{label}: {value}" for label, value in parts if value)
 
     @staticmethod
     def _chunk_uuid(chunk_id: str) -> str:
         """Deterministic UUID v5 from chunk_id — stable across re-ingestions."""
         return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"rag_chunk:{chunk_id}"))
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# SQLite page tracker
-# ──────────────────────────────────────────────────────────────────────────────
-
-
-# ──────────────────────────────────────────────────────────────────────────────
 # Postgres page tracker
-# ──────────────────────────────────────────────────────────────────────────────
-
 
 class PageTracker:
     """
@@ -234,10 +232,7 @@ class PageTracker:
         self.close()
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Content hashing utility
-# ──────────────────────────────────────────────────────────────────────────────
-
 
 def content_hash(text: str) -> str:
     """MD5 hash of the page content — used for change detection."""

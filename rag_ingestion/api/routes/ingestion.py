@@ -34,12 +34,10 @@ async def full_ingestion(
             detail="Ya hay una ingestion en curso. Consultá /ingestion/status.",
         )
 
-    # run_full_ingestion es sincrónico (bloquea con I/O).
-    # Lo corremos en un thread separado para no bloquear el event loop de FastAPI.
     thread = threading.Thread(
         target=service.run_full_ingestion,
         args=(force, None),
-        daemon=True,   # el thread no impide que el proceso cierre
+        daemon=True,
         name="ingestion-worker",
     )
     thread.start()
