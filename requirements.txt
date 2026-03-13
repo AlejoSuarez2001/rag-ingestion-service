@@ -21,6 +21,7 @@ docling==2.4.0
 
 # Settings & validation
 pydantic-settings==2.3.4
+PyJWT[crypto]==2.9.0
 
 # State tracking
 psycopg2-binary==2.9.9

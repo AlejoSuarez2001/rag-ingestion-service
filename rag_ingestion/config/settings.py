@@ -3,6 +3,11 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    # Auth / Keycloak
+    auth_certs: str = ""
+    auth_server_issuer: str = ""
+    keycloak_clientid: str = "rag-ingestion-service"
+
     # BookStack
     bookstack_url: str = ""
     bookstack_token_id: str = ""

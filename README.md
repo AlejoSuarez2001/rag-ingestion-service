@@ -7,6 +7,7 @@ Servicio de ingestión de documentación desde [BookStack](https://www.bookstack
 | Componente | Tecnología |
 |---|---|
 | API Source | BookStack REST API |
+| Auth | JWT Bearer + JWKS |
 | Parsing / Limpieza | Docling |
 | Chunking | LlamaIndex (`MarkdownNodeParser` + `SentenceSplitter`) |
 | Embeddings | Sentence Transformers |
@@ -120,7 +121,7 @@ La obtención de páginas usa una única llamada a `GET /api/search?query=*`, qu
 ```bash
 # 1. Configurar entorno
 cp .env.example .env
-# Editar .env con tus credenciales de BookStack y Qdrant
+# Editar .env con tus credenciales de BookStack, Qdrant y JWT
 
 # 2. Instalar dependencias
 python -m venv .venv
@@ -141,6 +142,33 @@ python main.py status
 
 # 7. Ver estadísticas de la colección en Qdrant
 python main.py stats
+```
+
+## Autenticación API
+
+Las rutas HTTP del servicio requieren un JWT Bearer válido.
+
+- Client id esperado: `rag-ingestion-service`
+- Rol requerido actualmente:
+  - `POST /api/v1/ingestion/full` → `ROLE_RAG_INGESTION_COMPLETA`
+  - `GET /api/v1/ingestion/status` → `ROLE_RAG_INGESTION_COMPLETA`
+
+Configuración requerida en `.env`:
+
+```env
+AUTH_CERTS=https://keycloak.example.com/realms/<realm>/protocol/openid-connect/certs
+AUTH_SERVER_ISSUER=https://keycloak.example.com/realms/<realm>
+KEYCLOAK_CLIENTID=rag-ingestion-service
+```
+
+Ejemplos:
+
+```bash
+curl -X POST "http://localhost:8001/api/v1/ingestion/full?force=true" \
+  -H "Authorization: Bearer <jwt>"
+
+curl http://localhost:8001/api/v1/ingestion/status \
+  -H "Authorization: Bearer <jwt>"
 ```
 
 ---
