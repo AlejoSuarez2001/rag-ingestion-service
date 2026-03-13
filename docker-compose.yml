@@ -49,8 +49,16 @@ services:
       - "6333:6333"
     volumes:
       - qdrant_data:/qdrant/storage
+    networks:
+      - default
+      - rag-shared
     restart: unless-stopped
 
 volumes:
   postgres_data:
   qdrant_data:
+
+networks:
+  rag-shared:
+    external: true
+    name: rag-shared
