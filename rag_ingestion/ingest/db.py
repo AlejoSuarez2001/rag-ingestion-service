@@ -126,9 +126,6 @@ class QdrantStore:
     def _chunk_search_text(chunk: Chunk) -> str:
         parts = [
             ("Título", chunk.title),
-            ("Página", chunk.page),
-            ("Capítulo", chunk.chapter),
-            ("Libro", chunk.book),
             ("Contenido", chunk.content),
         ]
         return "\n\n".join(f"{label}: {value}" for label, value in parts if value)
