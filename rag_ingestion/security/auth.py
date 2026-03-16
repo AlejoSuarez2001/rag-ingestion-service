@@ -1,4 +1,5 @@
 import logging
+import ssl
 from functools import lru_cache
 from typing import Any
 
@@ -15,8 +16,12 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 @lru_cache(maxsize=8)
-def _get_jwk_client(jwks_uri: str) -> PyJWKClient:
-    return PyJWKClient(jwks_uri)
+def _get_jwk_client(jwks_uri: str, verify_ssl: bool = True) -> PyJWKClient:
+    ssl_context = None if verify_ssl else ssl.create_default_context()
+    if ssl_context is not None:
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+    return PyJWKClient(jwks_uri, ssl_context=ssl_context)
 
 
 def _ensure_auth_config(settings: Settings) -> None:
@@ -53,7 +58,7 @@ async def get_current_token_payload(
     token = credentials.credentials
 
     try:
-        signing_key = _get_jwk_client(settings.auth_certs).get_signing_key_from_jwt(token)
+        signing_key = _get_jwk_client(settings.auth_certs, settings.auth_verify_ssl).get_signing_key_from_jwt(token)
         payload = jwt.decode(
             token,
             signing_key.key,

@@ -4,9 +4,10 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # Auth / Keycloak
-    auth_certs: str = ""
-    auth_server_issuer: str = ""
+    auth_certs: str = "https://auth-dev.frba.utn.edu.ar/realms/frba/protocol/openid-connect/certs"
+    auth_server_issuer: str = "https://auth-dev.frba.utn.edu.ar/realms/frba"
     keycloak_clientid: str = "rag-ingestion-service"
+    auth_verify_ssl: bool = False
 
     # BookStack
     bookstack_url: str = ""

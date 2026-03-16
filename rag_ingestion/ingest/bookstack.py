@@ -121,12 +121,12 @@ class BookStackClient:
         """Fetch the complete page list from the BookStack search endpoint."""
         documents: list[dict[str, Any]] = []
         total = 0
-        offset = 0
+        page = 1
 
         while True:
             resp = self._get_with_retry(
                 f"{self._base}/api/search",
-                params={"query": "*", "count": _SEARCH_PAGE_SIZE, "offset": offset},
+                params={"query": "*", "count": _SEARCH_PAGE_SIZE, "page": page},
             )
             body = resp.json()
             batch = body.get("data", [])
@@ -136,9 +136,9 @@ class BookStackClient:
                 break
 
             documents.extend(batch)
-            offset += len(batch)
+            page += 1
 
-            if offset >= total:
+            if len(documents) >= total:
                 break
 
         pages = [item for item in documents if item.get("type") == "page"]

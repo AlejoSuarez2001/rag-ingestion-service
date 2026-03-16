@@ -1,0 +1,50 @@
+networks:
+  traefik:
+    name: traefik-net
+    external: true
+  internal:
+    internal: true
+
+volumes:
+  qdrant_data:
+
+services:
+  ingestion:
+    container_name: rag-ingestion
+    image: registry.frba.utn.edu.ar/prd/rag-ingestion
+
+    networks:
+      - traefik
+      - internal
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.rag-ingestion.rule=Host(`rag-ingestion-tst.frba.utn.edu.ar`)"
+      - "traefik.http.services.rag-ingestion.loadbalancer.server.port=8001"
+
+    env_file: .env
+    environment:
+      EMBEDDING_DEVICE: cuda
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    depends_on:
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.9.2
+    container_name: qdrant-rag
+    networks:
+      - internal
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
