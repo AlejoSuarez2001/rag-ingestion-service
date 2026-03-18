@@ -61,8 +61,8 @@ class DoclingCleaner:
 
     @staticmethod
     def _regex_clean(text: str) -> str:
-        # Remove BookStack image attachment references
-        text = re.sub(r"!\[.*?\]\(.*?attachment.*?\)", "", text)
+        # Remove all markdown image references
+        text = re.sub(r"!\[.*?\]\([^)]*\)", "", text)
         return text
 
     @staticmethod
@@ -136,7 +136,7 @@ class DoclingCleaner:
 
     @staticmethod
     def _repair_mojibake(text: str) -> str:
-        if not any(marker in text for marker in ("Ã", "Â", "â€", "â€™", "â€œ", "â€\x9d", "â€“", "â€”")):
+        if not any(marker in text for marker in ("Ã", "Â", "â€", "â€™", "â€œ", "â€\x9d")):
             return text
 
         try:
@@ -151,7 +151,7 @@ class DoclingCleaner:
 
     @staticmethod
     def _mojibake_score(text: str) -> int:
-        return sum(text.count(marker) for marker in ("Ã", "Â", "â€", "â€™", "â€œ", "â€\x9d", "â€“", "â€”"))
+        return sum(text.count(marker) for marker in ("Ã", "Â", "â€", "â€™", "â€œ", "â€\x9d"))
 
     @staticmethod
     def _is_noise_line(line: str) -> bool:
