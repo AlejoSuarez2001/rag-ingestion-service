@@ -136,7 +136,7 @@ class DoclingCleaner:
 
     @staticmethod
     def _repair_mojibake(text: str) -> str:
-        if not any(marker in text for marker in ("Ã", "Â", "â€", "â€™", "â€œ", "â€\x9d")):
+        if not any(marker in text for marker in ("Ã", "Â", "â€", "â€™", "â€œ", "â€\x9d", "â€“", "â€”")):
             return text
 
         try:
@@ -151,7 +151,7 @@ class DoclingCleaner:
 
     @staticmethod
     def _mojibake_score(text: str) -> int:
-        return sum(text.count(marker) for marker in ("Ã", "Â", "â€", "â€™", "â€œ", "â€\x9d"))
+        return sum(text.count(marker) for marker in ("Ã", "Â", "â€", "â€™", "â€œ", "â€\x9d", "â€“", "â€”"))
 
     @staticmethod
     def _is_noise_line(line: str) -> bool:
