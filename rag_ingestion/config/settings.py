@@ -1,28 +1,28 @@
-from pydantic_settings import BaseSettings
+import os
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    # Auth / Keycloak
-    auth_certs: str = "https://auth-dev.frba.utn.edu.ar/realms/frba/protocol/openid-connect/certs"
-    auth_server_issuer: str = "https://auth-dev.frba.utn.edu.ar/realms/frba"
-    keycloak_clientid: str = "rag-ingestion-service"
-    auth_verify_ssl: bool = False
+    model_config = SettingsConfigDict(
+        env_file=f".env.{os.getenv('ENV', 'dev')}",
+        env_file_encoding="utf-8"
+    )
 
     # BookStack
-    bookstack_url: str = ""
-    bookstack_token_id: str = ""
-    bookstack_token_secret: str = ""
+    bookstack_url: str
+    bookstack_token_id: str
+    bookstack_token_secret: str
 
     # Qdrant
     qdrant_host: str = "qdrant"
     qdrant_port: int = 6333
     qdrant_collection: str = "tech_manuals"
 
-    # Embeddings (Vectores de 768 dimensiones)
-    embedding_model: str = "paraphrase-multilingual-mpnet-base-v2"
+    # Ollama (embeddings remotos)
+    ollama_base_url: str
+    embedding_model: str
     embedding_batch_size: int = 32
-    embedding_device: str = "cuda"
 
     # Chunking
     chunk_size_tokens: int = 500
@@ -38,8 +38,6 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = "INFO"
-
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
 @lru_cache

@@ -25,6 +25,7 @@ class IngestionJob:
         self.completed_at: str | None = None
         self.stats: dict = {}
         self.error: str | None = None
+        self.message: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -33,6 +34,7 @@ class IngestionJob:
             "completed_at": self.completed_at,
             "stats": self.stats,
             "error": self.error,
+            "message": self.message,
         }
 
 
@@ -48,9 +50,9 @@ class IngestionService:
         self.job = IngestionJob()
 
         self._embedder = EmbeddingService(
+            ollama_base_url=settings.ollama_base_url,
             model_name=settings.embedding_model,
             batch_size=settings.embedding_batch_size,
-            device=settings.embedding_device,
         )
         self._qdrant = QdrantStore(
             host=settings.qdrant_host,
@@ -79,6 +81,7 @@ class IngestionService:
             self.job.completed_at = None
             self.job.error = None
             self.job.stats = {}
+            self.job.message = "Inicializando proceso..."
 
         stats = {"total": 0, "ingested": 0, "skipped": 0, "errors": 0}
 
@@ -101,6 +104,9 @@ class IngestionService:
                     pages = [p for p in pages if p.id == page_id]
 
                 stats["total"] = len(pages)
+                with self._lock:
+                    self.job.stats = stats
+                    self.job.message = None
                 logger.info("Ingestion iniciada: %d páginas a procesar", len(pages))
 
                 for page in pages:
@@ -110,6 +116,8 @@ class IngestionService:
                         if not force and not tracker.needs_reingestion(page.id, page.updated_at, page_hash):
                             logger.debug("Página %d sin cambios, saltando", page.id)
                             stats["skipped"] += 1
+                            with self._lock:
+                                self.job.stats = stats
                             continue
 
                         version = tracker.get_version(page.id)
@@ -119,6 +127,8 @@ class IngestionService:
                         if not chunks:
                             logger.warning("Página %d generó 0 chunks, saltando", page.id)
                             stats["skipped"] += 1
+                            with self._lock:
+                                self.job.stats = stats
                             continue
 
                         chunk_vectors = self._embedder.embed_chunks(chunks)
@@ -133,10 +143,14 @@ class IngestionService:
 
                         logger.info("✓ Página %d '%s' → %d chunks (v%d)", page.id, page.title, len(chunks), version)
                         stats["ingested"] += 1
+                        with self._lock:
+                            self.job.stats = stats
 
                     except Exception:
                         logger.error("✗ Error procesando página %d '%s'", page.id, page.title, exc_info=True)
                         stats["errors"] += 1
+                        with self._lock:
+                            self.job.stats = stats
 
             with self._lock:
                 self.job.status = "completed"

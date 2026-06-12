@@ -8,10 +8,6 @@ uvicorn[standard]==0.29.0
 # Vector database
 qdrant-client==1.9.1
 
-# Embeddings
-sentence-transformers==3.0.1
-torch==2.3.1
-
 # Chunking / RAG framework
 llama-index-core==0.10.43
 tiktoken==0.7.0

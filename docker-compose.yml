@@ -7,8 +7,7 @@ services:
   ingestion:
     build:
       context: .
-      args:
-        TORCH_VERSION: "2.3.1"
-        TORCH_INDEX_URL: "https://download.pytorch.org/whl/cu121"
+    volumes:
+      - .:/app
     networks:
       - traefik

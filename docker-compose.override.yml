@@ -8,7 +8,6 @@ networks:
 volumes:
   postgres_data:
   qdrant_data:
-  hf_cache:
 
 services:
   ingestion:
@@ -21,21 +20,7 @@ services:
       - "traefik.http.routers.rag-ingestion.tls=true"
       - "traefik.http.services.rag-ingestion.loadbalancer.server.port=8001"
 
-    env_file: .env
-    volumes:
-      - hf_cache:/root/.cache/huggingface
-    environment:
-      EMBEDDING_DEVICE: cuda
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
+    env_file: .env.dev
     networks:
       - traefik
       - internal
@@ -72,7 +57,7 @@ services:
     image: qdrant/qdrant:v1.9.2
     container_name: qdrant-rag
     networks:
-      - internal                                                                                                                                                                            
+      - internal
       - traefik   
     ports:
       - "6333:6333"

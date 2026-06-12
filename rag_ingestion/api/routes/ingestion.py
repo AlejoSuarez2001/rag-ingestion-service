@@ -3,7 +3,6 @@ import threading
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from rag_ingestion.security import require_ingestion_role
 from rag_ingestion.services.ingestion_service import IngestionService
 
 logger = logging.getLogger(__name__)
@@ -11,7 +10,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/ingestion",
     tags=["Ingestion"],
-    dependencies=[Depends(require_ingestion_role)],
 )
 
 
