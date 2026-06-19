@@ -29,6 +29,14 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = 100
     tiktoken_encoding: str = "cl100k_base"
 
+    # OCR de imágenes (corre local en el contenedor, CPU; no usa la VM de inferencia)
+    ocr_enabled: bool = True
+    ocr_download_timeout: int = 15
+    ocr_text_score: float = 0.8
+    ocr_box_thresh: float = 0.5
+    ocr_unclip_ratio: float = 1.6
+    ocr_max_image_mb: int = 10
+
     # Postgres
     postgres_host: str = "postgres"
     postgres_port: int = 5432

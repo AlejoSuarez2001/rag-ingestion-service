@@ -25,6 +25,10 @@ def get_ingestion_service() -> IngestionService:
 )
 async def full_ingestion(
     force: bool = Query(False, description="Re-ingestar todas las páginas ignorando cambios"),
+    page_id: int | None = Query(
+        None,
+        description="Si se indica, ingesta SOLO esa página (útil para pruebas). Requiere force=true si ya fue ingestada.",
+    ),
     service: IngestionService = Depends(get_ingestion_service),
 ):
     """
@@ -39,13 +43,13 @@ async def full_ingestion(
 
     thread = threading.Thread(
         target=service.run_full_ingestion,
-        args=(force, None),
+        args=(force, page_id),
         daemon=True,
         name="ingestion-worker",
     )
     thread.start()
 
-    return {"message": "Ingestion iniciada en background.", "force": force}
+    return {"message": "Ingestion iniciada en background.", "force": force, "page_id": page_id}
 
 
 @router.get(

@@ -15,6 +15,9 @@ tiktoken==0.7.0
 # Document parsing & cleaning
 docling==2.4.0
 
+# OCR de imágenes (CPU, ONNX; arrastra onnxruntime, opencv-python, Pillow, numpy)
+rapidocr-onnxruntime==1.4.4
+
 # Settings & validation
 pydantic-settings==2.3.4
 PyJWT[crypto]==2.9.0

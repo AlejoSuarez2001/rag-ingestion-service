@@ -10,6 +10,7 @@ from rag_ingestion.ingest.chunking import ChunkingService
 from rag_ingestion.ingest.cleaner import DoclingCleaner
 from rag_ingestion.ingest.db import QdrantStore, PageTracker, content_hash
 from rag_ingestion.ingest.embeddings import EmbeddingService
+from rag_ingestion.ingest.image_ocr import ImageTextExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ class IngestionService:
         )
         self._qdrant.ensure_collection(vector_size=self._embedder.vector_size)
         self._cleaner = DoclingCleaner()
+        self._image_resolver = ImageTextExtractor(settings)
         self._chunker = ChunkingService(
             chunk_size=settings.chunk_size_tokens,
             overlap=settings.chunk_overlap_tokens,
@@ -137,7 +139,8 @@ class IngestionService:
                             continue
 
                         version = tracker.get_version(page.id)
-                        cleaned = self._cleaner.clean(markdown)
+                        resolved = self._image_resolver.resolve(markdown)
+                        cleaned = self._cleaner.clean(resolved)
                         chunks = self._chunker.chunk_page(page, cleaned, version=version)
 
                         if not chunks:

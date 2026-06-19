@@ -2,9 +2,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Dependencias necesarias para "docling"
+# Dependencias de sistema: "docling" (build-essential) y OpenCV que usa RapidOCR
+# (libgl1, libglib2.0-0) para el OCR de imágenes.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
