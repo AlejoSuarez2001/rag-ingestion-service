@@ -209,6 +209,20 @@ class PageTracker:
             )
         self._conn.commit()
 
+    def touch(self, page_id: int, updated_at: str) -> None:
+        """Refresca solo el updated_at almacenado, sin tocar el contenido ni la versión.
+
+        Se usa cuando BookStack reporta un updated_at nuevo pero el contenido es
+        idéntico (ej. edición de metadata): evita re-exportar el markdown en cada
+        corrida incremental futura.
+        """
+        with self._conn.cursor() as cur:
+            cur.execute(
+                "UPDATE pages SET updated_at = %s WHERE page_id = %s",
+                (updated_at, page_id),
+            )
+        self._conn.commit()
+
     def get_version(self, page_id: int) -> int:
         record = self.get(page_id)
         return (record["version"] + 1) if record else 1

@@ -10,7 +10,6 @@ class BookStackPage:
     slug: str
     url: str
     updated_at: str
-    content_markdown: str
 
     book_id: int
     book_name: str
@@ -18,6 +17,10 @@ class BookStackPage:
 
     chapter_id: int | None
     chapter_name: str | None
+
+    # Fetched lazily per-page during ingestion (see BookStackClient.get_page_markdown),
+    # not during enumeration — keeps get_all_pages() cheap.
+    content_markdown: str = ""
 
     @property
     def display_path(self) -> str:

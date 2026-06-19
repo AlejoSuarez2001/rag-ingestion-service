@@ -81,7 +81,7 @@ class IngestionService:
             self.job.completed_at = None
             self.job.error = None
             self.job.stats = {}
-            self.job.message = "Inicializando proceso..."
+            self.job.message = "Consultando páginas…"
 
         stats = {"total": 0, "ingested": 0, "skipped": 0, "errors": 0}
 
@@ -111,17 +111,33 @@ class IngestionService:
 
                 for page in pages:
                     try:
-                        page_hash = content_hash(page.content_markdown)
+                        record = tracker.get(page.id)
 
-                        if not force and not tracker.needs_reingestion(page.id, page.updated_at, page_hash):
-                            logger.debug("Página %d sin cambios, saltando", page.id)
+                        # Chequeo barato primero: si el updated_at coincide con lo
+                        # guardado, nada cambió → se saltea SIN exportar el markdown.
+                        if not force and record is not None and record["updated_at"] == page.updated_at:
+                            logger.debug("Página %d sin cambios (updated_at), saltando sin export", page.id)
+                            stats["skipped"] += 1
+                            with self._lock:
+                                self.job.stats = stats
+                            continue
+
+                        # Página nueva, fecha cambiada o force → recién acá se baja el contenido.
+                        markdown = bookstack.get_page_markdown(page.id)
+                        page_hash = content_hash(markdown)
+
+                        # Chequeo secundario: la fecha cambió pero el contenido es idéntico
+                        # → se refresca el updated_at y se saltea el embedding costoso.
+                        if not force and record is not None and record["content_hash"] == page_hash:
+                            logger.debug("Página %d sin cambios de contenido, refrescando updated_at", page.id)
+                            tracker.touch(page.id, page.updated_at)
                             stats["skipped"] += 1
                             with self._lock:
                                 self.job.stats = stats
                             continue
 
                         version = tracker.get_version(page.id)
-                        cleaned = self._cleaner.clean(page.content_markdown)
+                        cleaned = self._cleaner.clean(markdown)
                         chunks = self._chunker.chunk_page(page, cleaned, version=version)
 
                         if not chunks:

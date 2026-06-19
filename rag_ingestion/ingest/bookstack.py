@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 _RETRY_ATTEMPTS = 3
 _RETRY_BASE_DELAY = 1.0
-_SEARCH_PAGE_SIZE = 100
+_LIST_PAGE_SIZE = 500
 
 class BookStackClient:
     """HTTP client for the BookStack REST API."""
@@ -26,18 +26,40 @@ class BookStackClient:
     # Public API
 
     def get_all_pages(self) -> list[BookStackPage]:
-        """Fetch every page across all books with full hierarchy metadata."""
+        """Fetch every page across all books with full hierarchy metadata.
+
+        Uses the ``/api/pages`` listing endpoint (paginated) to enumerate the
+        complete catalogue. The previous ``/api/search?query=*`` approach was a
+        relevance search and silently capped results, dropping whole books.
+
+        Since ``/api/pages`` does not embed the book/chapter ``name`` (only
+        ``book_slug``), the book and chapter names/slugs are resolved from
+        ``/api/books`` and ``/api/chapters``, each fetched once into a lookup map.
+        """
         logger.info("Fetching all pages from BookStack at %s", self._base)
-        raw_pages = self._fetch_search_pages()
-        logger.info("Found %d page documents in total", len(raw_pages))
+        books_map = self._fetch_books_map()
+        chapters_map = self._fetch_chapters_map()
+        raw_pages = self._fetch_all("/api/pages")
+        logger.info(
+            "BookStack /api/pages devolvió %d páginas (%d libros, %d capítulos en los mapas)",
+            len(raw_pages), len(books_map), len(chapters_map),
+        )
 
         pages: list[BookStackPage] = []
+        skipped_drafts = 0
         for raw in raw_pages:
+            if raw.get("draft"):
+                skipped_drafts += 1
+                continue
             try:
-                pages.append(self._enrich_page(raw))
+                pages.append(self._enrich_page(raw, books_map, chapters_map))
             except Exception:
                 logger.warning("Failed to enrich page id=%s, skipping", raw.get("id"), exc_info=True)
 
+        logger.info(
+            "Páginas enriquecidas: %d (descartadas %d drafts, %d con error de enriquecimiento)",
+            len(pages), skipped_drafts, len(raw_pages) - skipped_drafts - len(pages),
+        )
         return pages
 
     def get_page_markdown(self, page_id: int) -> str:
@@ -86,30 +108,35 @@ class BookStackClient:
             f"BookStack API no respondió tras {_RETRY_ATTEMPTS} intentos: {last_exc}"
         )
 
-    def _enrich_page(self, raw: dict[str, Any]) -> BookStackPage:
+    def _enrich_page(
+        self,
+        raw: dict[str, Any],
+        books_map: dict[int, dict[str, Any]],
+        chapters_map: dict[int, dict[str, Any]],
+    ) -> BookStackPage:
         """Combine raw page listing data with its markdown content and hierarchy info."""
         page_id: int = raw["id"]
         book_id: int = raw.get("book_id", 0)
         chapter_id: int | None = raw.get("chapter_id") or None
 
-        book = raw.get("book") or {}
+        book = books_map.get(book_id, {})
         book_name = book.get("name", f"book_{book_id}")
-        book_slug = book.get("slug", str(book_id))
+        book_slug = book.get("slug") or raw.get("book_slug") or str(book_id)
 
-        chapter = raw.get("chapter") or {}
+        chapter = chapters_map.get(chapter_id) if chapter_id else None
         chapter_name = chapter.get("name") if chapter else None
-
-        content_markdown = self.get_page_markdown(page_id)
 
         url = f"{self._base}/books/{book_slug}/page/{raw.get('slug', page_id)}"
 
+        # content_markdown is intentionally left empty here; it is fetched lazily
+        # by the ingestion loop only for pages that actually changed, so that an
+        # incremental run does not export all ~1800 pages every time.
         return BookStackPage(
             id=page_id,
             title=raw.get("name", ""),
             slug=raw.get("slug", ""),
             url=url,
             updated_at=raw.get("updated_at", ""),
-            content_markdown=content_markdown,
             book_id=book_id,
             book_name=book_name,
             book_slug=book_slug,
@@ -117,16 +144,24 @@ class BookStackClient:
             chapter_name=chapter_name,
         )
 
-    def _fetch_search_pages(self) -> list[dict[str, Any]]:
-        """Fetch the complete page list from the BookStack search endpoint."""
-        documents: list[dict[str, Any]] = []
+    def _fetch_books_map(self) -> dict[int, dict[str, Any]]:
+        """Fetch all books once, keyed by id, for name/slug resolution."""
+        return {book["id"]: book for book in self._fetch_all("/api/books")}
+
+    def _fetch_chapters_map(self) -> dict[int, dict[str, Any]]:
+        """Fetch all chapters once, keyed by id, for name resolution."""
+        return {chapter["id"]: chapter for chapter in self._fetch_all("/api/chapters")}
+
+    def _fetch_all(self, endpoint: str) -> list[dict[str, Any]]:
+        """Fetch every item from a BookStack listing endpoint via offset pagination."""
+        items: list[dict[str, Any]] = []
         total = 0
-        page = 1
+        offset = 0
 
         while True:
             resp = self._get_with_retry(
-                f"{self._base}/api/search",
-                params={"query": "*", "count": _SEARCH_PAGE_SIZE, "page": page},
+                f"{self._base}{endpoint}",
+                params={"count": _LIST_PAGE_SIZE, "offset": offset},
             )
             body = resp.json()
             batch = body.get("data", [])
@@ -135,20 +170,14 @@ class BookStackClient:
             if not batch:
                 break
 
-            documents.extend(batch)
-            page += 1
+            items.extend(batch)
+            offset += len(batch)
 
-            if len(documents) >= total:
+            if offset >= total:
                 break
 
-        pages = [item for item in documents if item.get("type") == "page"]
-        logger.info(
-            "BookStack /api/search reportó total=%d; se recuperaron %d documentos; %d con type=page",
-            total,
-            len(documents),
-            len(pages),
-        )
-        return pages
+        logger.debug("BookStack %s: recuperados %d/%d ítems", endpoint, len(items), total)
+        return items
 
     def close(self) -> None:
         self._client.close()
