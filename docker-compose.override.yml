@@ -38,6 +38,7 @@ services:
     container_name: postgres-rag
     networks:
       - internal
+      - traefik
     environment:
       POSTGRES_DB: rag_ingestion
       POSTGRES_USER: rag
