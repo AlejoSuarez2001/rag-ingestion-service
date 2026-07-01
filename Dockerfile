@@ -13,4 +13,6 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 COPY . .
 
-ENTRYPOINT ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+# El entrypoint corre `alembic upgrade head` antes de levantar uvicorn.
+# Se invoca con `sh` para no depender del bit +x (en dev el bind-mount pisa permisos).
+ENTRYPOINT ["sh", "entrypoint.sh"]

@@ -22,5 +22,11 @@ PyJWT[crypto]==2.9.0
 # State tracking
 psycopg2-binary==2.9.9
 
+# ORM (modelado de esquema) + migraciones
+# Las queries siguen en psycopg2; SQLModel es la fuente de verdad del esquema y
+# Alembic versiona los cambios.
+sqlmodel==0.0.22
+alembic==1.13.2
+
 # Dev utilities
 python-dotenv==1.0.1

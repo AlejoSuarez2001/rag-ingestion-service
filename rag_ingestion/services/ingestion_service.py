@@ -96,6 +96,7 @@ class IngestionService:
                 dbname=self._settings.postgres_db,
                 user=self._settings.postgres_user,
                 password=self._settings.postgres_password,
+                schema=self._settings.db_schema,
             ) as tracker:
 
                 pages = bookstack.get_all_pages()

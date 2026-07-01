@@ -143,17 +143,6 @@ class PageTracker:
     and their content hash, enabling incremental re-ingestion.
     """
 
-    _CREATE_TABLE = """
-        CREATE TABLE IF NOT EXISTS pages (
-            page_id      INTEGER PRIMARY KEY,
-            updated_at   TEXT    NOT NULL,
-            content_hash TEXT    NOT NULL,
-            version      INTEGER NOT NULL DEFAULT 1,
-            chunk_count  INTEGER NOT NULL DEFAULT 0,
-            ingested_at  TEXT    NOT NULL
-        )
-    """
-
     def __init__(
         self,
         host: str,
@@ -161,19 +150,27 @@ class PageTracker:
         dbname: str,
         user: str,
         password: str,
+        schema: str,
     ) -> None:
         import psycopg2
         import psycopg2.extras
 
+        # La tabla `pages` vive en el schema `ingestion` (gestionado por Alembic).
+        # Fijamos search_path en la conexión para que las queries resuelvan sin
+        # calificar. El esquema ya no se crea acá.
         self._conn = psycopg2.connect(
-            host=host, port=port, dbname=dbname, user=user, password=password
+            host=host,
+            port=port,
+            dbname=dbname,
+            user=user,
+            password=password,
+            options=f"-c search_path={schema}",
         )
         self._conn.autocommit = False
         self._cursor_factory = psycopg2.extras.RealDictCursor
-        with self._conn.cursor() as cur:
-            cur.execute(self._CREATE_TABLE)
-        self._conn.commit()
-        logger.info("PageTracker conectado a Postgres %s:%s/%s", host, port, dbname)
+        logger.info(
+            "PageTracker conectado a Postgres %s:%s/%s (schema=%s)", host, port, dbname, schema
+        )
 
     def get(self, page_id: int) -> dict | None:
         with self._conn.cursor(cursor_factory=self._cursor_factory) as cur:

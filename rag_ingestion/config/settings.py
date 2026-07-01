@@ -35,9 +35,20 @@ class Settings(BaseSettings):
     postgres_db: str = "rag_ingestion"
     postgres_user: str = "rag"
     postgres_password: str = "rag"
+    # Schema propio de este servicio dentro de la base compartida (separa su tabla
+    # de las de rag-api). El runtime fija search_path acá; Alembic lo crea.
+    db_schema: str = "ingestion"
 
     # Logging
     log_level: str = "INFO"
+
+    @property
+    def sync_database_url(self) -> str:
+        """DSN sync (psycopg2) que usa Alembic para correr migraciones."""
+        return (
+            f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        )
 
 
 @lru_cache
